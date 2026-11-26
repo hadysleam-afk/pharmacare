@@ -97,3 +97,11 @@ test('dashboard, alerts, sales list and static page', async () => {
   assert.equal(del.status, 200);
   assert.equal((await call('/api/medicines/1', 'DELETE')).status, 404);
 });
+
+test('dashboard returns a 7-day series and stock status', async () => {
+  const d = (await call('/api/dashboard')).data;
+  assert.equal(d.daily.length, 7);
+  assert.equal(d.daily[6].date, new Date().toISOString().slice(0, 10));
+  assert.ok(d.daily[6].total >= 50);
+  assert.equal(typeof d.stockStatus.ok, 'number');
+});

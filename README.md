@@ -37,7 +37,7 @@ Environment variables: `PORT` (3000), `DB_FILE` (`data/pharmacare.db`), `ADMIN_U
 npm test
 ```
 
-Covers auth, validation, CRUD, batch rules, FEFO, overselling, atomic rollback, expired stock, alerts and dashboard (6 tests). The UI was also exercised end to end in headless Chrome (screenshots in `docs/screenshots`).
+Covers auth, validation, CRUD, batch rules, FEFO, overselling, atomic rollback, expired stock, alerts and dashboard (6 tests). The UI was also exercised end to end in headless Chrome.
 
 ## Honest limits / حدود النسخة الحالية
 

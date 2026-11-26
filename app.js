@@ -138,8 +138,19 @@ function createApp({ db, adminUser, adminPassword }) {
     const expiredLoss = one('SELECT COALESCE(SUM(b.qty * b.cost),0) AS v FROM batches b WHERE b.expiry < ?', t).v;
     const top = q(`SELECT m.name, SUM(si.qty) AS qty FROM sale_items si JOIN medicines m ON m.id = si.medicine_id
       GROUP BY m.id ORDER BY qty DESC LIMIT 5`);
+    const rows = q("SELECT date(created_at) AS d, SUM(total) AS total, COUNT(*) AS n FROM sales WHERE date(created_at) >= ? GROUP BY d", addDays(-6));
+    const byDay = new Map(rows.map((r) => [r.d, r]));
+    const daily = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = addDays(-i);
+      const r = byDay.get(d);
+      daily.push({ date: d, total: r ? r.total : 0, invoices: r ? r.n : 0 });
+    }
+    const totalMeds = one('SELECT COUNT(*) AS n FROM medicines WHERE active = 1').n;
     return {
-      medicines: one('SELECT COUNT(*) AS n FROM medicines WHERE active = 1').n,
+      daily,
+      stockStatus: { ok: Math.max(0, totalMeds - a.lowStock.length), low: a.lowStock.length, expired: a.expired.length },
+      medicines: totalMeds,
       todaySales: day.total, todayInvoices: day.n, monthSales: month.total, stockValue, expiredLoss,
       lowStockCount: a.lowStock.length, nearExpiryCount: a.nearExpiry.length, expiredCount: a.expired.length, top,
     };

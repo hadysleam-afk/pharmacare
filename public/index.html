@@ -3,44 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b6b63">
 <title>PharmaCare | إدارة الصيدلية</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b6b63'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='white' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div id="login" class="login hidden">
-  <form id="loginForm" class="card">
-    <h1>💊 PharmaCare</h1>
-    <p class="muted">نظام إدارة مخزون ومبيعات الصيدلية</p>
-    <label>اسم المستخدم<input name="username" autocomplete="username" required></label>
-    <label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label>
-    <button class="primary">دخول</button>
-    <p id="loginError" class="error"></p>
-    <p class="muted small">نسخة تجريبية: المستخدم admin وكلمة المرور demo1234 (غيّرها بمتغير ADMIN_PASSWORD).</p>
+  <div class="login-art">
+    <div class="brand big"><span class="logo" data-icon="logo"></span><span>PharmaCare</span></div>
+    <h2>إدارة صيدليتك بثقة</h2>
+    <ul>
+      <li><span data-icon="check"></span>متابعة التشغيلات وتواريخ الصلاحية</li>
+      <li><span data-icon="check"></span>بيع بنظام الأقدم صلاحية أولًا</li>
+      <li><span data-icon="check"></span>تنبيهات فورية للمنتهي والناقص</li>
+    </ul>
+  </div>
+  <form id="loginForm" class="login-card">
+    <h1>تسجيل الدخول</h1>
+    <p class="muted">أدخل بياناتك للوصول إلى لوحة التحكم</p>
+    <label class="field">اسم المستخدم<input name="username" autocomplete="username" required></label>
+    <label class="field">كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary block">دخول</button>
+    <p id="loginError" class="error" role="alert"></p>
+    <p class="hint">نسخة تجريبية: المستخدم <b>admin</b> وكلمة المرور <b>demo1234</b>. غيّرها بمتغير ADMIN_PASSWORD.</p>
   </form>
 </div>
 
-<div id="app" class="hidden">
-  <header>
-    <b>💊 PharmaCare</b>
+<div id="app" class="shell hidden">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo" data-icon="logo"></span><span>PharmaCare</span></div>
     <nav id="tabs">
-      <button data-tab="dashboard" class="active">الرئيسية</button>
-      <button data-tab="pos">نقطة البيع</button>
-      <button data-tab="inventory">المخزون</button>
-      <button data-tab="alerts">التنبيهات</button>
-      <button data-tab="sales">الفواتير</button>
+      <button data-tab="dashboard" class="active"><span data-icon="home"></span><b>الرئيسية</b></button>
+      <button data-tab="pos"><span data-icon="cart"></span><b>نقطة البيع</b></button>
+      <button data-tab="inventory"><span data-icon="box"></span><b>المخزون</b></button>
+      <button data-tab="alerts"><span data-icon="bell"></span><b>التنبيهات</b><i id="alertBadge" class="badge hidden"></i></button>
+      <button data-tab="sales"><span data-icon="receipt"></span><b>الفواتير</b></button>
     </nav>
-    <button id="logout" class="link">خروج</button>
-  </header>
-  <div class="banner">البيانات الحالية بيانات تجريبية للعرض فقط وليست أدوية أو مبيعات حقيقية.</div>
-  <main>
-    <section id="dashboard"></section>
-    <section id="pos" class="hidden"></section>
-    <section id="inventory" class="hidden"></section>
-    <section id="alerts" class="hidden"></section>
-    <section id="sales" class="hidden"></section>
-  </main>
+    <button id="logout" class="logout"><span data-icon="logout"></span><b>تسجيل الخروج</b></button>
+  </aside>
+  <div class="content">
+    <div class="banner"><span data-icon="info"></span>البيانات الحالية تجريبية للعرض فقط وليست أدوية أو مبيعات حقيقية.</div>
+    <main>
+      <div class="page-head"><h1 id="pageTitle"></h1><p id="pageSub" class="muted"></p></div>
+      <section id="dashboard"></section>
+      <section id="pos" class="hidden"></section>
+      <section id="inventory" class="hidden"></section>
+      <section id="alerts" class="hidden"></section>
+      <section id="sales" class="hidden"></section>
+    </main>
+  </div>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 <dialog id="dlg"></dialog>
 <script src="/app.js"></script>
 </body>

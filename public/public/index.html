@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PharmaCare | إدارة الصيدلية</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="login" class="login hidden">
+  <form id="loginForm" class="card">
+    <h1>💊 PharmaCare</h1>
+    <p class="muted">نظام إدارة مخزون ومبيعات الصيدلية</p>
+    <label>اسم المستخدم<input name="username" autocomplete="username" required></label>
+    <label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="primary">دخول</button>
+    <p id="loginError" class="error"></p>
+    <p class="muted small">نسخة تجريبية: المستخدم admin وكلمة المرور demo1234 (غيّرها بمتغير ADMIN_PASSWORD).</p>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <b>💊 PharmaCare</b>
+    <nav id="tabs">
+      <button data-tab="dashboard" class="active">الرئيسية</button>
+      <button data-tab="pos">نقطة البيع</button>
+      <button data-tab="inventory">المخزون</button>
+      <button data-tab="alerts">التنبيهات</button>
+      <button data-tab="sales">الفواتير</button>
+    </nav>
+    <button id="logout" class="link">خروج</button>
+  </header>
+  <div class="banner">البيانات الحالية بيانات تجريبية للعرض فقط وليست أدوية أو مبيعات حقيقية.</div>
+  <main>
+    <section id="dashboard"></section>
+    <section id="pos" class="hidden"></section>
+    <section id="inventory" class="hidden"></section>
+    <section id="alerts" class="hidden"></section>
+    <section id="sales" class="hidden"></section>
+  </main>
+</div>
+<div id="toast"></div>
+<dialog id="dlg"></dialog>
+<script src="/app.js"></script>
+</body>
+</html>

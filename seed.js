@@ -36,5 +36,26 @@ meds.forEach(([name, generic, category, price, min, batches], i) => {
       .run(r.lastInsertRowid, `DEMO-${i + 1}-${j + 1}`, d(days), qty, Math.round(price * 0.7 * 100) / 100, 'مورد تجريبي');
   });
 });
+// Demo sales history for the last 7 days (fake, deterministic) so the dashboard has something to show.
+let seedN = 7;
+const rnd = (n) => { seedN = (seedN * 9301 + 49297) % 233280; return Math.floor((seedN / 233280) * n); };
+for (let back = 6; back >= 0; back--) {
+  const count = 3 + rnd(4);
+  for (let k = 0; k < count; k++) {
+    const stamp = `${d(-back)} ${String(9 + rnd(11)).padStart(2, '0')}:${String(rnd(60)).padStart(2, '0')}:00`;
+    const lines = [];
+    for (let j = 0; j < 1 + rnd(3); j++) {
+      const b = db.prepare('SELECT b.id, b.medicine_id, b.qty, m.price FROM batches b JOIN medicines m ON m.id = b.medicine_id WHERE b.qty > 20 AND b.expiry >= ? ORDER BY RANDOM() LIMIT 1').get(d(0));
+      if (b && !lines.some((l) => l.medicine_id === b.medicine_id)) lines.push({ ...b, take: 1 + rnd(4) });
+    }
+    if (!lines.length) continue;
+    const total = lines.reduce((s, l) => s + l.take * l.price, 0);
+    const sale = db.prepare('INSERT INTO sales (created_at, total, customer) VALUES (?,?,?)').run(stamp, total, 'عميل تجريبي');
+    for (const l of lines) {
+      db.prepare('UPDATE batches SET qty = qty - ? WHERE id = ?').run(l.take, l.id);
+      db.prepare('INSERT INTO sale_items (sale_id, medicine_id, batch_id, qty, price) VALUES (?,?,?,?,?)').run(sale.lastInsertRowid, l.medicine_id, l.id, l.take, l.price);
+    }
+  }
+}
 db.exec('COMMIT');
-console.log(`Seeded ${meds.length} demo medicines.`);
+console.log(`Seeded ${meds.length} demo medicines and a week of demo sales.`);

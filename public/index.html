@@ -18,8 +18,9 @@
     <h2>إدارة صيدليتك بثقة</h2>
     <ul>
       <li><span data-icon="check"></span>متابعة التشغيلات وتواريخ الصلاحية</li>
-      <li><span data-icon="check"></span>بيع بنظام الأقدم صلاحية أولًا</li>
-      <li><span data-icon="check"></span>تنبيهات فورية للمنتهي والناقص</li>
+      <li><span data-icon="check"></span>بيع ومرتجعات بنظام الأقدم صلاحية أولًا</li>
+      <li><span data-icon="check"></span>مشتريات وموردون وعملاء وتقارير</li>
+      <li><span data-icon="check"></span>صلاحيات مدير وبائع</li>
     </ul>
   </div>
   <form id="loginForm" class="login-card">
@@ -29,7 +30,7 @@
     <label class="field">كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label>
     <button class="btn primary block">دخول</button>
     <p id="loginError" class="error" role="alert"></p>
-    <p class="hint">نسخة تجريبية: المستخدم <b>admin</b> وكلمة المرور <b>demo1234</b>. غيّرها بمتغير ADMIN_PASSWORD.</p>
+    <p class="hint">نسخة تجريبية: المستخدم <b>admin</b> وكلمة المرور <b>demo1234</b>. غيّرها بمتغير ADMIN_PASSWORD. حساب بائع للتجربة: <b>cashier</b> / <b>demo1234</b>.</p>
   </form>
 </div>
 
@@ -39,10 +40,16 @@
     <nav id="tabs">
       <button data-tab="dashboard" class="active"><span data-icon="home"></span><b>الرئيسية</b></button>
       <button data-tab="pos"><span data-icon="cart"></span><b>نقطة البيع</b></button>
-      <button data-tab="inventory"><span data-icon="box"></span><b>المخزون</b></button>
-      <button data-tab="alerts"><span data-icon="bell"></span><b>التنبيهات</b><i id="alertBadge" class="badge hidden"></i></button>
       <button data-tab="sales"><span data-icon="receipt"></span><b>الفواتير</b></button>
+      <button data-tab="customers"><span data-icon="users"></span><b>العملاء</b></button>
+      <button data-tab="inventory" data-role="admin"><span data-icon="box"></span><b>المخزون</b></button>
+      <button data-tab="purchases" data-role="admin"><span data-icon="truck"></span><b>المشتريات</b></button>
+      <button data-tab="suppliers" data-role="admin"><span data-icon="clipboard"></span><b>الموردون</b></button>
+      <button data-tab="alerts"><span data-icon="bell"></span><b>التنبيهات</b><i id="alertBadge" class="badge hidden"></i></button>
+      <button data-tab="reports" data-role="admin"><span data-icon="chart"></span><b>التقارير</b></button>
+      <button data-tab="users" data-role="admin"><span data-icon="shield"></span><b>المستخدمون</b></button>
     </nav>
+    <div class="me" id="meBox"></div>
     <button id="logout" class="logout"><span data-icon="logout"></span><b>تسجيل الخروج</b></button>
   </aside>
   <div class="content">
@@ -51,14 +58,20 @@
       <div class="page-head"><h1 id="pageTitle"></h1><p id="pageSub" class="muted"></p></div>
       <section id="dashboard"></section>
       <section id="pos" class="hidden"></section>
-      <section id="inventory" class="hidden"></section>
-      <section id="alerts" class="hidden"></section>
       <section id="sales" class="hidden"></section>
+      <section id="customers" class="hidden"></section>
+      <section id="inventory" class="hidden"></section>
+      <section id="purchases" class="hidden"></section>
+      <section id="suppliers" class="hidden"></section>
+      <section id="alerts" class="hidden"></section>
+      <section id="reports" class="hidden"></section>
+      <section id="users" class="hidden"></section>
     </main>
   </div>
 </div>
 <div id="toast" role="status"></div>
 <dialog id="dlg"></dialog>
 <script src="/app.js"></script>
+<script src="/pages.js"></script>
 </body>
 </html>

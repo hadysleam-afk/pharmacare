@@ -1,6 +1,8 @@
 'use strict';
-// DEMO DATA ONLY. Names are common generic medicines; prices, stock and batches are made up.
+// DEMO DATA ONLY. Names are common generic medicines; prices, stock, batches,
+// suppliers, customers and sales are all made up so the app has something to show.
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { openDb } = require('./db');
 
 const dbFile = process.env.DB_FILE || path.join(__dirname, 'data', 'pharmacare.db');
@@ -10,6 +12,7 @@ if (db.prepare('SELECT COUNT(*) AS n FROM medicines').get().n > 0) {
   process.exit(0);
 }
 const d = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+const hash = (pw, salt) => crypto.pbkdf2Sync(String(pw), salt, 100000, 32, 'sha256').toString('hex');
 const meds = [
   ['Paracetamol 500mg', 'Paracetamol', 'مسكن وخافض حرارة', 12, 30, [[400, 8], [150, 300]]],
   ['Ibuprofen 400mg', 'Ibuprofen', 'مسكن', 25, 20, [[90, 220]]],
@@ -28,12 +31,29 @@ const meds = [
   ['Antiseptic Solution 100ml', 'Povidone-iodine', 'مطهرات', 22, 12, [[50, 600]]],
 ];
 db.exec('BEGIN');
+// Demo users: the admin from the environment, plus a demo cashier (seller role).
+const adminUser = process.env.ADMIN_USER || 'admin';
+const adminPassword = process.env.ADMIN_PASSWORD || 'demo1234';
+const saltA = crypto.randomBytes(16).toString('hex');
+const admin = db.prepare('INSERT INTO users (username, pass_hash, salt, role) VALUES (?,?,?,?)').run(adminUser, hash(adminPassword, saltA), saltA, 'admin');
+const saltC = crypto.randomBytes(16).toString('hex');
+db.prepare('INSERT INTO users (username, pass_hash, salt, role) VALUES (?,?,?,?)').run('cashier', hash('demo1234', saltC), saltC, 'seller');
+// Demo suppliers.
+const sup1 = db.prepare('INSERT INTO suppliers (name, phone, company) VALUES (?,?,?)').run('الشركة العربية للأدوية', '02-23456789', 'المخازن المركزية');
+const sup2 = db.prepare('INSERT INTO suppliers (name, phone, company) VALUES (?,?,?)').run('مخازن المهندس للجملة', '01001234567', '');
+// Demo customers.
+const custNames = ['أحمد علي', 'منى سيد', 'كابتن محمود', 'الحاجة سعاد'];
+const custIds = custNames.map((n, i) => db.prepare('INSERT INTO customers (name, phone) VALUES (?,?)').run(n, i % 2 ? '0109876543' + i : '').lastInsertRowid);
 meds.forEach(([name, generic, category, price, min, batches], i) => {
   const r = db.prepare('INSERT INTO medicines (name, generic, category, barcode, price, min_stock) VALUES (?,?,?,?,?,?)')
     .run(name, generic, category, `DEMO${String(1000 + i)}`, price, min);
   batches.forEach(([qty, days], j) => {
-    if (qty > 0) db.prepare('INSERT INTO batches (medicine_id, batch_no, expiry, qty, cost, supplier) VALUES (?,?,?,?,?,?)')
-      .run(r.lastInsertRowid, `DEMO-${i + 1}-${j + 1}`, d(days), qty, Math.round(price * 0.7 * 100) / 100, 'مورد تجريبي');
+    if (qty > 0) {
+      const sup = ((i + j) % 2 ? sup1 : sup2).lastInsertRowid;
+      db.prepare('INSERT INTO batches (medicine_id, batch_no, expiry, qty, cost, supplier, supplier_id) VALUES (?,?,?,?,?,?,?)')
+        .run(r.lastInsertRowid, `DEMO-${i + 1}-${j + 1}`, d(days), qty, Math.round(price * 0.7 * 100) / 100,
+          db.prepare('SELECT name FROM suppliers WHERE id = ?').get(sup).name, sup);
+    }
   });
 });
 // Demo sales history for the last 7 days (fake, deterministic) so the dashboard has something to show.
@@ -50,12 +70,36 @@ for (let back = 6; back >= 0; back--) {
     }
     if (!lines.length) continue;
     const total = lines.reduce((s, l) => s + l.take * l.price, 0);
-    const sale = db.prepare('INSERT INTO sales (created_at, total, customer) VALUES (?,?,?)').run(stamp, total, 'عميل تجريبي');
+    const ci = rnd(3) === 0 ? null : custIds[rnd(custIds.length)];
+    const cname = ci ? db.prepare('SELECT name FROM customers WHERE id = ?').get(ci).name : '';
+    const sale = db.prepare('INSERT INTO sales (created_at, total, customer, customer_id, user_id) VALUES (?,?,?,?,?)').run(stamp, total, cname, ci, admin.lastInsertRowid);
     for (const l of lines) {
       db.prepare('UPDATE batches SET qty = qty - ? WHERE id = ?').run(l.take, l.id);
       db.prepare('INSERT INTO sale_items (sale_id, medicine_id, batch_id, qty, price) VALUES (?,?,?,?,?)').run(sale.lastInsertRowid, l.medicine_id, l.id, l.take, l.price);
     }
   }
 }
+// Two demo purchase invoices, each adding fresh batches to stock.
+const purMeds = [[1, 60, 240, 8.4], [9, 40, 400, 21], [10, 30, 365, 31.5]];
+[[sup1.lastInsertRowid, purMeds.slice(0, 2)], [sup2.lastInsertRowid, purMeds.slice(2)]].forEach(([supId, lines]) => {
+  const total = lines.reduce((s, [, qty, , cost]) => s + qty * cost, 0);
+  const p = db.prepare('INSERT INTO purchases (supplier_id, user_id, total) VALUES (?,?,?)').run(supId, admin.lastInsertRowid, total);
+  const supName = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(supId).name;
+  lines.forEach(([medId, qty, days, cost], j) => {
+    const b = db.prepare('INSERT INTO batches (medicine_id, batch_no, expiry, qty, cost, supplier, supplier_id, purchase_id) VALUES (?,?,?,?,?,?,?,?)')
+      .run(medId, `PUR-${p.lastInsertRowid}-${j + 1}`, d(days), qty, cost, supName, supId, p.lastInsertRowid);
+    db.prepare('INSERT INTO purchase_items (purchase_id, medicine_id, batch_id, qty, cost) VALUES (?,?,?,?,?)')
+      .run(p.lastInsertRowid, medId, b.lastInsertRowid, qty, cost);
+  });
+});
+// One demo return against the latest sale (restocks the batch).
+const lastLine = db.prepare('SELECT si.*, b.expiry FROM sale_items si JOIN batches b ON b.id = si.batch_id ORDER BY si.id DESC LIMIT 1').get();
+if (lastLine) {
+  const ret = db.prepare("INSERT INTO returns (sale_id, user_id, total, reason) VALUES (?,?,?,'مرتجع تجريبي')").run(lastLine.sale_id, admin.lastInsertRowid, lastLine.price);
+  db.prepare('INSERT INTO return_items (return_id, sale_item_id, medicine_id, batch_id, qty, price) VALUES (?,?,?,?,1,?)')
+    .run(ret.lastInsertRowid, lastLine.id, lastLine.medicine_id, lastLine.batch_id, lastLine.price);
+  if (lastLine.expiry >= d(0)) db.prepare('UPDATE batches SET qty = qty + 1 WHERE id = ?').run(lastLine.batch_id);
+}
 db.exec('COMMIT');
-console.log(`Seeded ${meds.length} demo medicines and a week of demo sales.`);
+console.log(`Seeded ${meds.length} demo medicines, a week of demo sales, 2 suppliers, ${custNames.length} customers, 2 purchase invoices and 1 return.`);
+console.log('Demo logins: admin / (ADMIN_PASSWORD or demo1234), cashier / demo1234 (seller role).');

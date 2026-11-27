@@ -210,3 +210,22 @@ input.invalid { border-color:var(--red); }
 .cart-count { background:var(--brand); color:#fff; border-radius:99px; font-size:12px; padding:1px 9px; }
 @media print { body * { visibility:hidden; } dialog, dialog * { visibility:visible; } dialog { position:absolute; inset:0; box-shadow:none; } .dlg-foot, .dlg-head button { display:none; } }
 @media (max-width:860px) { #tabs button { white-space:nowrap; font-size:10.5px; } #tabs button b { font-weight:700; } }
+
+/* v2 additions */
+.me { display:flex; align-items:center; gap:10px; color:#d7efec; padding:10px 12px 4px; border-top:1px solid rgba(255,255,255,.15); margin-top:6px; font-size:13px; }
+.me b { display:block; color:#fff; }
+.me small { color:#9fd4cd; }
+#tabs { overflow-y:auto; scrollbar-width:thin; }
+.rep-date { display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:700; color:#27474b; }
+.rep-date input { width:auto; }
+.ret-line { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px dashed var(--line); }
+.ret-check { display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; cursor:pointer; }
+.ret-check input { width:18px; height:18px; accent-color:var(--brand); }
+.ret-line input[type=number] { width:76px; padding:6px 10px; }
+.pur-line { display:grid; grid-template-columns:1.4fr .6fr .9fr .7fr auto; gap:8px; margin-bottom:8px; align-items:center; }
+@media (max-width:560px) { .pur-line { grid-template-columns:1fr 1fr; } }
+@media (max-width:860px) {
+  #tabs { overflow-x:auto; overflow-y:hidden; justify-content:flex-start; gap:2px; }
+  #tabs button { flex:0 0 auto; }
+  .me { display:none; }
+}

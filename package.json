@@ -1,6 +1,6 @@
 {
   "name": "pharmacare",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "PharmaCare: small pharmacy inventory and point-of-sale system (Node.js + SQLite, zero npm dependencies)",
   "main": "server.js",
   "engines": { "node": ">=22.13" },

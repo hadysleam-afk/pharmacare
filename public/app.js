@@ -23,11 +23,20 @@ const ICONS = {
   print: '<path d="M6 9V3h12v6M6 18H4v-7h16v7h-2"/><rect x="6" y="14" width="12" height="7"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   wallet: '<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-4v4M17 14h2"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M17.5 14.5c2.6.7 4 2.8 4 5.5"/>',
+  truck: '<path d="M1 5h13v11H1z"/><path d="M14 9h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a3 3 0 0 1 6 0M9 11h6M9 15h6"/>',
+  chart: '<path d="M3 21h18"/><path d="M7 21v-8M12 21V5M17 21v-12"/>',
+  shield: '<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
 };
 const icon = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 const hydrateIcons = (root = document) => root.querySelectorAll('[data-icon]').forEach((e) => { if (!e.firstChild) e.innerHTML = icon(e.dataset.icon); });
 
 let token = sessionStorage.getItem('token');
+let me = { username: sessionStorage.getItem('username') || '', role: sessionStorage.getItem('role') || 'admin' };
+const isAdmin = () => me.role === 'admin';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -50,7 +59,22 @@ async function api(path, method = 'GET', body) {
   if (!r.ok) throw new Error(data.error || 'حدث خطأ');
   return data;
 }
-function logout() { token = null; sessionStorage.removeItem('token'); $('#app').classList.add('hidden'); $('#login').classList.remove('hidden'); }
+// Authenticated file download (CSV exports carry the session token, so a plain link will not work).
+async function download(path, fallbackName) {
+  const r = await fetch('/api' + path, { headers: { Authorization: 'Bearer ' + token } });
+  if (r.status === 401) return logout();
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'فشل التصدير'); }
+  const blob = await r.blob();
+  const cd = r.headers.get('content-disposition') || '';
+  const name = (cd.match(/filename="([^"]+)"/) || [])[1] || fallbackName;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function logout() {
+  token = null; sessionStorage.removeItem('token'); sessionStorage.removeItem('username'); sessionStorage.removeItem('role');
+  $('#app').classList.add('hidden'); $('#login').classList.remove('hidden');
+}
 
 // count-up animation for hero/stat numbers
 function countUp(root) {
@@ -73,7 +97,9 @@ $('#loginForm').addEventListener('submit', async (e) => {
   btn.disabled = true; $('#loginError').textContent = '';
   try {
     const r = await api('/login', 'POST', { username: f.get('username'), password: f.get('password') });
-    token = r.token; sessionStorage.setItem('token', token); start();
+    token = r.token; me = { username: r.username, role: r.role };
+    sessionStorage.setItem('token', token); sessionStorage.setItem('username', me.username); sessionStorage.setItem('role', me.role);
+    start();
   } catch (err) { $('#loginError').textContent = err.message; }
   btn.disabled = false;
 });
@@ -83,12 +109,22 @@ $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('button
 const TITLES = {
   dashboard: ['لوحة التحكم', 'نظرة سريعة على أداء الصيدلية اليوم'],
   pos: ['نقطة البيع', 'ابحث عن الدواء وأضفه للفاتورة. اضغط / للبحث السريع'],
+  sales: ['الفواتير', 'آخر 100 فاتورة بيع ومرتجعاتها'],
+  customers: ['العملاء', 'سجل العملاء ومشترياتهم'],
   inventory: ['المخزون', 'كل الأدوية والتشغيلات وتواريخ الصلاحية'],
+  purchases: ['المشتريات', 'فواتير الشراء من الموردين، وكل فاتورة تضيف تشغيلات للمخزون'],
+  suppliers: ['الموردون', 'شركات التوريد وفواتيرهم'],
   alerts: ['التنبيهات', 'ما يحتاج تصرفًا الآن: المنتهي والقارب على الانتهاء والناقص'],
-  sales: ['الفواتير', 'آخر 100 فاتورة'],
+  reports: ['التقارير', 'مبيعات وأرباح أي فترة، مع تصدير Excel'],
+  users: ['المستخدمون', 'حسابات الصيدلية وصلاحياتها (مدير / بائع)'],
 };
-const views = { dashboard, pos, inventory, alerts, sales };
+const views = {
+  dashboard: () => dashboard(), pos: () => pos(), sales: () => sales(), customers: () => customers(),
+  inventory: () => inventory(), purchases: () => purchases(), suppliers: () => suppliers(),
+  alerts: () => alerts(), reports: () => reports(), users: () => users(),
+};
 function show(tab) {
+  if (!views[tab]) tab = 'dashboard';
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('main section').forEach((s) => s.classList.toggle('hidden', s.id !== tab));
   $('#pageTitle').textContent = TITLES[tab][0]; $('#pageSub').textContent = TITLES[tab][1];
@@ -102,7 +138,12 @@ async function refreshBadge() {
     const b = $('#alertBadge'); b.textContent = n; b.classList.toggle('hidden', n === 0);
   } catch { /* ignore */ }
 }
-function start() { $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); hydrateIcons(); show('dashboard'); }
+function applyRole() {
+  document.querySelectorAll('#tabs [data-role="admin"]').forEach((b) => b.classList.toggle('hidden', !isAdmin()));
+  $('#meBox').innerHTML = `<span data-icon="user"></span><div><b>${esc(me.username)}</b><small>${isAdmin() ? 'مدير' : 'بائع'}</small></div>`;
+  hydrateIcons($('#meBox'));
+}
+function start() { $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); applyRole(); hydrateIcons(); show('dashboard'); }
 document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
     const s = $('#posSearch:not(.hidden)') || $('#invSearch'); if (s && s.offsetParent) { e.preventDefault(); s.focus(); }
@@ -125,7 +166,7 @@ async function dashboard() {
         <h2>${greet}، مبيعات اليوم</h2>
         <div class="big"><span data-count="${d.todaySales}" data-dec="2">0</span><small>ج.م</small></div>
         <p>${d.todayInvoices} فاتورة اليوم · مبيعات الشهر ${money(d.monthSales)} ج.م</p>
-        <div class="cta"><button class="btn light" data-go="pos">${icon('cart')} بيع جديد</button><button class="btn ghost" data-go="inventory">${icon('box')} إدارة المخزون</button></div>
+        <div class="cta"><button class="btn light" data-go="pos">${icon('cart')} بيع جديد</button><button class="btn ghost" data-go="${isAdmin() ? 'inventory' : 'sales'}">${icon('box')} ${isAdmin() ? 'إدارة المخزون' : 'الفواتير'}</button></div>
       </div>
       <div class="hero-side">
         <div class="mini"><div class="l">قيمة المخزون الصالح</div><div class="v">${money(d.stockValue)}</div></div>
@@ -158,13 +199,15 @@ let cart = JSON.parse(sessionStorage.getItem('cart') || '[]');
 const saveCart = () => sessionStorage.setItem('cart', JSON.stringify(cart));
 async function pos() {
   const meds = await api('/medicines');
+  const custs = await api('/customers');
   cart = cart.filter((c) => meds.some((m) => m.id === c.id)).map((c) => { const m = meds.find((x) => x.id === c.id); return { ...c, price: m.price, stock: m.stock, qty: Math.min(c.qty, m.stock) || 1 }; });
   const el = $('#pos');
   el.innerHTML = `<div class="pos">
     <div><div class="toolbar"><div class="search">${icon('search')}<input id="posSearch" placeholder="ابحث بالاسم أو الاسم العلمي أو الباركود  (Enter للإضافة)" autocomplete="off"></div><span class="muted small">اضغط <span class="kbd">/</span></span></div>
       <div class="products" id="posList"></div></div>
     <div class="card cart"><h2>${icon('receipt')} الفاتورة <span class="cart-count" id="cartCount">0</span></h2><div id="cart"></div>
-      <label class="field">اسم العميل (اختياري)<input id="customer" placeholder="مثال: أحمد"></label>
+      <label class="field">العميل (اختياري)<input id="customer" list="custList" placeholder="اسم موجود أو جديد" autocomplete="off"></label>
+      <datalist id="custList">${custs.map((c) => `<option value="${esc(c.name)}">`).join('')}</datalist>
       <div class="cart-total"><span>الإجمالي</span><span id="cartTotal"></span></div>
       <button class="btn primary block" id="checkout">${icon('check')} إتمام البيع</button>
       <button class="btn block" id="clearCart" style="margin-top:8px">تفريغ الفاتورة</button></div></div>`;
@@ -230,12 +273,64 @@ function receipt(s) {
   d.showModal(); setTimeout(() => $('#posSearch') && $('#posSearch').focus(), 50);
 }
 
+/* ---------- sales & returns ---------- */
+async function sales() {
+  const list = await api('/sales');
+  $('#sales').innerHTML = list.length ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>التاريخ (UTC)</th><th>العميل</th><th>الكاشير</th><th>الأصناف</th><th>الإجمالي</th><th></th></tr></thead><tbody>
+    ${list.map((s) => `<tr><td><b>#${s.id}</b></td><td class="num-cell">${esc(s.created_at)}</td><td>${esc(s.customer || '-')}</td><td>${esc(s.cashier || '-')}</td><td>${s.items}</td>
+    <td class="num-cell"><b>${money(s.total)} ج.م</b>${s.refunded ? ` <span class="tag near">مرتجع ${money(s.refunded)}</span>` : ''}</td>
+    <td><button class="btn sm" data-inv="${s.id}">عرض الفاتورة</button></td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="card">${empty('receipt', 'لا توجد فواتير بعد', 'أول عملية بيع هتظهر هنا', `<br><button class="btn primary" id="goPos">${icon('cart')} بيع جديد</button>`)}</div>`;
+  const g = $('#goPos'); if (g) g.onclick = () => show('pos');
+  $('#sales').onclick = async (e) => {
+    const b = e.target.closest('[data-inv]'); if (!b) return;
+    invoiceDialog(await api('/sales/' + b.dataset.inv));
+  };
+}
+function invoiceDialog(s) {
+  const d = $('#dlg');
+  const fullyReturned = s.items.every((i) => i.returned >= i.qty);
+  d.innerHTML = `<div class="dlg-head"><h2>فاتورة #${s.id}</h2><button class="x" id="closeDlg">${icon('x')}</button></div>
+    <div class="dlg-body receipt"><div class="muted">${esc(s.created_at)} UTC${s.customer ? ' · ' + esc(s.customer) : ''}${s.cashier ? ' · الكاشير: ' + esc(s.cashier) : ''}</div>
+    ${s.items.map((i) => `<div class="r-line"><span>${esc(i.name)} × ${i.qty}${i.returned ? ` <span class="tag near">مرتجع ${i.returned}</span>` : ''}<div class="sub muted">تشغيلة ${esc(i.batch_no)}</div></span><b>${money(i.price * i.qty)} ج.م</b></div>`).join('')}
+    <div class="r-total"><span>الإجمالي</span><span>${money(s.total)} ج.م</span></div>
+    ${s.refunded ? `<div class="r-line"><span class="muted">إجمالي المرتجع</span><b style="color:var(--amber)">− ${money(s.refunded)} ج.م</b></div>
+    <div class="r-total"><span>الصافي</span><span>${money(s.total - s.refunded)} ج.م</span></div>` : ''}</div>
+    <div class="dlg-foot"><button class="btn" id="printR">${icon('print')} طباعة</button>
+    ${fullyReturned ? '' : `<button class="btn danger" id="retBtn">${icon('rotate')} مرتجع</button>`}</div>`;
+  $('#closeDlg').onclick = () => d.close(); $('#printR').onclick = () => window.print();
+  const rb = $('#retBtn'); if (rb) rb.onclick = () => returnForm(s);
+  d.showModal();
+}
+function returnForm(s) {
+  const lines = s.items.filter((i) => i.qty - i.returned > 0);
+  dialog(`مرتجع من فاتورة #${s.id}`, `
+    ${lines.map((i) => `<div class="ret-line">
+      <label class="ret-check"><input type="checkbox" data-ret-check="${i.id}"><span>${esc(i.name)} <small class="muted">(متاح للمرتجع ${i.qty - i.returned})</small></span></label>
+      <input type="number" min="1" max="${i.qty - i.returned}" value="1" data-ret-qty="${i.id}" disabled></div>`).join('')}
+    <label class="field">سبب المرتجع (اختياري)<input name="reason" placeholder="مثال: العميل غيّر رأيه"></label>`,
+  async (f) => {
+    const items = lines.filter((i) => document.querySelector(`[data-ret-check="${i.id}"]`).checked)
+      .map((i) => ({ sale_item_id: i.id, qty: Number(document.querySelector(`[data-ret-qty="${i.id}"]`).value) }));
+    if (!items.length) throw new Error('اختر صنفًا واحدًا على الأقل');
+    const r = await api(`/sales/${s.id}/returns`, 'POST', { items, reason: f.reason });
+    toast(`تم تسجيل مرتجع بقيمة ${money(r.total)} ج.م وعادت الكمية للمخزون`);
+    refreshBadge(); sales();
+  }, 'تسجيل المرتجع');
+  const d = $('#dlg');
+  d.querySelectorAll('[data-ret-check]').forEach((c) => c.addEventListener('change', () => {
+    const qty = d.querySelector(`[data-ret-qty="${c.dataset.retCheck}"]`); qty.disabled = !c.checked; if (c.checked) qty.focus();
+  }));
+}
+
 /* ---------- inventory ---------- */
 let invFilter = 'all';
 async function inventory() {
   const el = $('#inventory');
   el.innerHTML = `<div class="toolbar"><div class="search">${icon('search')}<input id="invSearch" placeholder="ابحث في المخزون" autocomplete="off"></div>
-    <div class="chips" id="chips"></div><button class="btn primary" id="newMed" style="margin-inline-start:auto">${icon('plus')} دواء جديد</button></div>
+    <div class="chips" id="chips"></div>
+    <button class="btn" id="exportInv">${icon('down')} Excel</button>
+    <button class="btn primary" id="newMed">${icon('plus')} دواء جديد</button></div>
     <div class="table-wrap"><table><thead><tr><th>الصنف</th><th>التصنيف</th><th>السعر</th><th>المخزون</th><th>أقرب انتهاء</th><th></th></tr></thead><tbody id="invList"></tbody></table></div>`;
   let meds = [];
   const flags = (m) => ({ low: m.stock <= m.min_stock, expired: m.expired_qty > 0, near: m.next_expiry && daysLeft(m.next_expiry) <= 60 });
@@ -260,6 +355,7 @@ async function inventory() {
   let timer; $('#invSearch').oninput = () => { clearTimeout(timer); timer = setTimeout(() => load().catch((e) => toast(e.message, true)), 220); };
   $('#chips').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) { invFilter = b.dataset.f; draw(); } };
   $('#newMed').onclick = () => medForm(null, load);
+  $('#exportInv').onclick = () => download('/export/inventory.csv', 'inventory.csv').then(() => toast('تم تنزيل ملف المخزون')).catch((e) => toast(e.message, true));
   $('#invList').onclick = async (e) => {
     const b = e.target.closest('button'); if (!b) return; const t = b.dataset; const find = (id) => meds.find((m) => m.id === Number(id));
     if (t.edit) medForm(find(t.edit), load);
@@ -304,13 +400,14 @@ function medForm(m, reload) {
 }
 function batchForm(m, reload) {
   const min = new Date().toISOString().slice(0, 10);
-  dialog('استلام دفعة', `<p class="muted" style="margin:6px 0 0">${esc(m.name)}</p>
+  dialog('استلام دفعة', `<p class="muted" style="margin:6px 0 0">${esc(m.name)} · لاستلام أكثر من صنف بفاتورة واحدة استخدم صفحة المشتريات</p>
     <div class="two-col"><label class="field">الكمية *<input name="qty" type="number" min="1" required></label>
     <label class="field">تاريخ الانتهاء *<input name="expiry" type="date" min="${min}" required></label></div>
     <div class="two-col"><label class="field">رقم التشغيلة<input name="batch_no" placeholder="يُولَّد تلقائيًا"></label>
     <label class="field">تكلفة الوحدة (ج.م)<input name="cost" type="number" step="0.01" min="0"></label></div>
-    <label class="field">المورد<input name="supplier"></label>`,
+    <label class="field">المورد<input name="supplier" list="supList"></label><datalist id="supList"></datalist>`,
   async (f) => { f.qty = Number(f.qty); await api(`/medicines/${m.id}/batches`, 'POST', f); toast('تم استلام الدفعة وتحديث المخزون'); await reload(); refreshBadge(); }, 'استلام');
+  if (isAdmin()) api('/suppliers').then((ss) => { $('#supList').innerHTML = ss.map((s) => `<option value="${esc(s.name)}">`).join(''); }).catch(() => {});
 }
 
 /* ---------- alerts ---------- */
@@ -322,30 +419,11 @@ async function alerts() {
   $('#alerts').innerHTML = `<div class="alert-sections">
     ${section('منتهية الصلاحية، اسحبها من الرف', 'warn', 'red', 'low', a.expired, bRow('low'))}
     ${section(`تنتهي خلال ${a.nearDays} يومًا`, 'clock', 'amber', 'near', a.nearExpiry, bRow('near'))}
-    ${section('مخزون منخفض', 'box', 'blue', 'info', a.lowStock, (r) => `<tr><td><b>${esc(r.name)}</b></td><td>المتاح <b>${r.stock}</b> من حد ${r.min_stock}</td><td><button class="btn sm" data-recv="${r.id}">${icon('down')} استلام دفعة</button></td></tr>`)}</div>`;
+    ${section('مخزون منخفض', 'box', 'blue', 'info', a.lowStock, (r) => `<tr><td><b>${esc(r.name)}</b></td><td>المتاح <b>${r.stock}</b> من حد ${r.min_stock}</td><td>${isAdmin() ? `<button class="btn sm" data-recv="${r.id}">${icon('down')} استلام دفعة</button>` : ''}</td></tr>`)}</div>`;
   const root = $('#alerts');
   root.onclick = async (e) => {
     const b = e.target.closest('[data-recv]'); if (!b) return;
     const meds = await api('/medicines'); batchForm(meds.find((m) => m.id === Number(b.dataset.recv)), alerts);
-  };
-}
-
-/* ---------- sales ---------- */
-async function sales() {
-  const list = await api('/sales');
-  $('#sales').innerHTML = list.length ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>التاريخ (UTC)</th><th>العميل</th><th>الأصناف</th><th>الإجمالي</th><th></th></tr></thead><tbody>
-    ${list.map((s) => `<tr><td><b>#${s.id}</b></td><td class="num-cell">${esc(s.created_at)}</td><td>${esc(s.customer || '-')}</td><td>${s.items}</td><td class="num-cell"><b>${money(s.total)} ج.م</b></td><td><button class="btn sm" data-inv="${s.id}">عرض الفاتورة</button></td></tr>`).join('')}</tbody></table></div>`
-    : `<div class="card">${empty('receipt', 'لا توجد فواتير بعد', 'أول عملية بيع هتظهر هنا', `<br><button class="btn primary" id="goPos">${icon('cart')} بيع جديد</button>`)}</div>`;
-  const g = $('#goPos'); if (g) g.onclick = () => show('pos');
-  $('#sales').onclick = async (e) => {
-    const b = e.target.closest('[data-inv]'); if (!b) return;
-    const s = await api('/sales/' + b.dataset.inv); const d = $('#dlg');
-    d.innerHTML = `<div class="dlg-head"><h2>فاتورة #${s.id}</h2><button class="x" id="closeDlg">${icon('x')}</button></div>
-      <div class="dlg-body receipt"><div class="muted">${esc(s.created_at)} UTC${s.customer ? ' · ' + esc(s.customer) : ''}</div>
-      ${s.items.map((i) => `<div class="r-line"><span>${esc(i.name)} × ${i.qty}<div class="sub muted">تشغيلة ${esc(i.batch_no)}</div></span><b>${money(i.price * i.qty)} ج.م</b></div>`).join('')}
-      <div class="r-total"><span>الإجمالي</span><span>${money(s.total)} ج.م</span></div></div>
-      <div class="dlg-foot"><button class="btn" id="printR">${icon('print')} طباعة</button></div>`;
-    $('#closeDlg').onclick = () => d.close(); $('#printR').onclick = () => window.print(); d.showModal();
   };
 }
 
